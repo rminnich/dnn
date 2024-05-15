@@ -7,7 +7,7 @@ import (
 
 func TestLSB(t *testing.T) {
 	wt := []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}
-	n, err := nn.New(wt, .5, 1)
+	n, err := nn.New(1, .5, wt)
 	n.Run()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -45,7 +45,7 @@ func TestLSB(t *testing.T) {
 }
 func Test2SB(t *testing.T) {
 	wt := []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}
-	n, err := nn.New(wt, .5, 1)
+	n, err := nn.New(1, .5, wt)
 	n.Run()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -83,7 +83,7 @@ func Test2SB(t *testing.T) {
 }
 func Test4SB(t *testing.T) {
 	wt := []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}
-	n, err := nn.New(wt, .5, 1)
+	n, err := nn.New(1, .5, wt)
 	n.Run()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -121,7 +121,7 @@ func Test4SB(t *testing.T) {
 }
 func Test8SB(t *testing.T) {
 	wt := []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}
-	n, err := nn.New(wt, .5, 1)
+	n, err := nn.New(1, .5, wt)
 	n.Run()
 	if err != nil {
 		t.Fatalf("New: got %v, want nil", err)
@@ -153,6 +153,61 @@ func Test8SB(t *testing.T) {
 		t.Logf("%d: %v: result %v > .5 %v want %v", i, tt, of, of > .5, tt.out)
 		if of > .5 != tt.out {
 			t.Errorf("%d: got %v, test %v, want %v", i, of, of > .5, tt.out)
+		}
+
+	}
+}
+
+func floatx(f []float64) int {
+	var ret int
+	for i := range f {
+		bit := f[i] > .5
+		if bit {
+			ret |= (1 << i)
+		}
+	}
+	return ret
+}
+
+func TestX(t *testing.T) {
+	wt := [][]float64{
+		[]float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1},
+		[]float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0},
+		[]float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0},
+		[]float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+	}
+	c, err := nn.NewCol(.5, wt)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	c.Run()
+
+	for i, tt := range []struct {
+		in [10]float64
+	}{
+		{in: [10]float64{.99}},
+		{in: [10]float64{0, .99}},
+		{in: [10]float64{0, 0, .99}},
+		{in: [10]float64{0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, .99}},
+		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, .99}},
+	} {
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		for i, f := range tt.in {
+			go c.Send(uint(i), f)
+		}
+		of := c.Recv()
+		x := floatx(of)
+		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
+
+		if x != i {
+			t.Errorf("%d: got %v, want %v", i, x, i)
 		}
 
 	}
