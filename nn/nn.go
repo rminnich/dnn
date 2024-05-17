@@ -1,6 +1,7 @@
 package nn
 
 import (
+	"fmt"
 	"log"
 	"math"
 )
@@ -10,29 +11,33 @@ var V = func(string, ...any) {}
 // N implements io.WriterAt and io.ReaderAt.
 // The offset is the chan number.
 type N struct {
+	id string
 	in   []chan float64
 	wt   []float64
 	bias float64
 	out  []chan float64
 }
 
-func New(out int, bias float64, wt []float64) (*N, error) {
+func New(id string, out int, bias float64, wt []float64) (*N, error) {
 	chans := make([]chan float64, len(wt)+out, len(wt)+out)
 	for i := range chans {
 		chans[i] = make(chan float64)
 	}
-	return &N{in: chans[:len(wt)], wt: wt, bias: bias, out: chans[len(wt):]}, nil
+	return &N{id:id,in: chans[:len(wt)], wt: wt, bias: bias, out: chans[len(wt):]}, nil
 }
 
+func (n*N)String() string{
+	return fmt.Sprintf("N%s", n.id)
+}
 // Run runs an N
 func (n *N) Run() {
 	go func() {
 		for {
 			var x float64
 			for i := range n.in {
-				V("  N:Run:recv %d:", i)
+				V("  %s:Run:recv %d:", n,i)
 				f := <-n.in[i]
-				V("  N:Run:got %v", f)
+				V("  %s:Run:got %v", n,f)
 				x += f * n.wt[i]
 			}
 			z := (x - n.bias)
@@ -40,9 +45,9 @@ func (n *N) Run() {
 
 			V("%v + %v is %v", x, n.bias, y)
 			for i := range n.out {
-				V("  N:Run:send %d %v", i, y)
+				V("  %s:Run:send %d %v", n,i, y)
 				n.out[i] <- y
-				V("  N:Run:Sent")
+				V("  %s:Run:Sent", n)
 			}
 		}
 	}()
@@ -51,24 +56,29 @@ func (n *N) Run() {
 func (n *N) Recv(i uint) float64 {
 	// it's just our stuff, so don't be bad.
 	if i > uint(len(n.out)) {
-		log.Panicf("Recv %d: only %d chans", i, len(n.out))
+		log.Panicf("  %s:Recv %d: only %d chans", n, i, len(n.out))
 	}
 	x := <-n.out[i]
-	V("  N:recv on %d %v", i, x)
+	V("  %s:recv on %d %v", n, i, x)
 	return x
 }
 
 func (n *N) Send(i uint, f float64) {
 	if i > uint(len(n.in)) {
-		log.Panicf("Send %d: only %d chans", i, len(n.in))
+		log.Panicf("  %s:Send %d: only %d chans", n, i, len(n.in))
 	}
-	V("  N:send: %v to %d", f, i)
+	V("  %s:send: %v to %d", n, f, i)
 	n.in[i] <- f
 }
 
 // Col is a column of N
 type Col struct {
+	ID string
 	NN []*N
+}
+
+func (c*Col) String() string {
+	return fmt.Sprintf("C%s", c.ID)
 }
 
 type ColSpec struct {
@@ -76,11 +86,11 @@ type ColSpec struct {
 	Bias   float64
 }
 
-func NewCol(colspec ...ColSpec) (*Col, error) {
-	col := &Col{NN: make([]*N, len(colspec), len(colspec))}
+func NewCol(id string, colspec ...ColSpec) (*Col, error) {
+	col := &Col{ID: id, NN: make([]*N, len(colspec), len(colspec))}
 	for i, c := range colspec {
 		var err error
-		if col.NN[i], err = New(1, c.Bias, c.Weight); err != nil {
+		if col.NN[i], err = New(fmt.Sprintf("(%s,%d)", id, i), 1, c.Bias, c.Weight); err != nil {
 			return nil, err
 		}
 	}
@@ -97,16 +107,17 @@ func (c *Col) Recv() []float64 {
 	// it's just our stuff, so don't be bad.
 	r := make([]float64, len(c.NN), len(c.NN))
 	for i := range r {
-		V(" col:recv from %v", c.NN[i])
+		V(" %s:call recv from %v", c, c.NN[i])
 		r[i] = c.NN[i].Recv(0)
+		V(" %s:got %v", c, r[i])
 	}
 	return r
 }
 
 func (c *Col) Send(i uint, f float64) {
-	V(" col:send %v to %d", f, i)
+	V(" %s:send %v to %d", c, f, i)
 	for j := range c.NN {
-		V(" col:send %v to %d:%d", f, j, i)
+		V(" %s:send %v to %d:%d", c, f, j, i)
 		go c.NN[j].Send(uint(i), f)
 	}
 }
@@ -120,7 +131,7 @@ func NewNet(cols ...[]ColSpec) (*Net, error) {
 	n := &Net{Cols: make([]*Col, len(cols), len(cols))}
 	for i, col := range cols {
 		var err error
-		n.Cols[i], err = NewCol(col...)
+		n.Cols[i], err = NewCol(fmt.Sprintf("%d", i), col...)
 		if err != nil {
 			return nil, err
 		}
@@ -135,27 +146,31 @@ func (n *Net) Run() {
 		c.Run()
 	}
 
-	for i := range n.Cols[:len(n.Cols)-1] {
-		V("Set up copiers for 0..%d", len(n.Cols)-1)
+	for i := range n.Cols {
+		if i == 0 {
+			continue
+		}
+		V("Set up copiers for %d..%d", i-1,i)
 		// each column has nets of the same size, for now, although the design
 		// allows it to vary, let's not go there yet. Until we need to.
 		// Each node has one and only one output (for now); fanout is handled
 		// by this goroutine.
 		// So foreach col[i].nn[j] goes to every one of col[i+1].nn[i]
-		go func() {
-			x := n.Cols[i+1]
-			r := n.Cols[i]
+		go func(i int) {
+			x := n.Cols[i]
+			r := n.Cols[i-1]
 			for {
 				var pass int
 				V("net:Loop for layer %d", i)
 				f := r.Recv()
+				V("net:recv'd on col %d", i)
 				for j, v := range f {
 					V("net; send %v from layer %d to %d port %d", f, i, i+1, j)
 					x.Send(uint(j), v)
 				}
 				V("net:Loop for layer %d pass %d", i, pass)
 			}
-		}()
+		}(i)
 	}
 }
 
