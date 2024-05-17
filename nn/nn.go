@@ -30,9 +30,9 @@ func (n *N) Run() {
 		for {
 			var x float64
 			for i := range n.in {
-				V("Run: Recv %d:", i)
+				V("  N:Run:recv %d:", i)
 				f := <-n.in[i]
-				V("Run:Got %v", f)
+				V("  N:Run:got %v", f)
 				x += f * n.wt[i]
 			}
 			z := (x - n.bias)
@@ -40,9 +40,9 @@ func (n *N) Run() {
 
 			V("%v + %v is %v", x, n.bias, y)
 			for i := range n.out {
-				V("Run:Send %d %v", i, y)
+				V("  N:Run:send %d %v", i, y)
 				n.out[i] <- y
-				V("Run:Sent")
+				V("  N:Run:Sent")
 			}
 		}
 	}()
@@ -54,7 +54,7 @@ func (n *N) Recv(i uint) float64 {
 		log.Panicf("Recv %d: only %d chans", i, len(n.out))
 	}
 	x := <-n.out[i]
-	V("Recv on %d %v", i, x)
+	V("  N:recv on %d %v", i, x)
 	return x
 }
 
@@ -62,7 +62,7 @@ func (n *N) Send(i uint, f float64) {
 	if i > uint(len(n.in)) {
 		log.Panicf("Send %d: only %d chans", i, len(n.in))
 	}
-	V("Send %v to %d", f, i)
+	V("  N:send: %v to %d", f, i)
 	n.in[i] <- f
 }
 
@@ -97,16 +97,16 @@ func (c *Col) Recv() []float64 {
 	// it's just our stuff, so don't be bad.
 	r := make([]float64, len(c.NN), len(c.NN))
 	for i := range r {
-		V("recv from %v", c.NN[i])
+		V(" col:recv from %v", c.NN[i])
 		r[i] = c.NN[i].Recv(0)
 	}
 	return r
 }
 
 func (c *Col) Send(i uint, f float64) {
-	V("Send %v to %d", f, i)
+	V(" col:send %v to %d", f, i)
 	for j := range c.NN {
-		V("Send %v to %d:%d", f, j, i)
+		V(" col:send %v to %d:%d", f, j, i)
 		go c.NN[j].Send(uint(i), f)
 	}
 }
@@ -143,17 +143,17 @@ func (n *Net) Run() {
 		// by this goroutine.
 		// So foreach col[i].nn[j] goes to every one of col[i+1].nn[i]
 		go func() {
+			x := n.Cols[i+1]
+			r := n.Cols[i]
 			for {
 				var pass int
-				V("Loop for layer %d", i)
-				for i, x := range n.Cols[i].NN {
-					f := x.Recv(0)
-					V("Copy %v from layer %d to %d", f, i, i+1)
-					for j, r := range n.Cols[i+1].NN {
-						r.Send(uint(j), f)
-					}
+				V("net:Loop for layer %d", i)
+				f := r.Recv()
+				for j, v := range f {
+					V("net; send %v from layer %d to %d port %d", f, i, i+1, j)
+					x.Send(uint(j), v)
 				}
-				V("Loop for layer %d pass %d", i, pass)
+				V("net:Loop for layer %d pass %d", i, pass)
 			}
 		}()
 	}
@@ -165,7 +165,7 @@ func (n *Net) Recv() []float64 {
 	// it's just our stuff, so don't be bad.
 	r := make([]float64, len(last.NN), len(last.NN))
 	for i := range r {
-		V("recv from %v", last.NN[i])
+		V("net:recv from %v", last.NN[i])
 		r[i] = last.NN[i].Recv(0)
 	}
 	return r
@@ -173,9 +173,9 @@ func (n *Net) Recv() []float64 {
 
 func (n *Net) Send(i uint, f float64) {
 	first := n.Cols[0]
-	V("Send %v to %d", f, i)
+	V("net:send %v to %d", f, i)
 	for j := range first.NN {
-		V("Send %v to %d:%d", f, j, i)
-		go first.NN[j].Send(uint(i), f)
+		V("net:send %v to %d:%d", f, j, i)
+		go first.Send(uint(i), f)
 	}
 }

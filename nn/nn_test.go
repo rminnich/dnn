@@ -257,7 +257,7 @@ func TestArr1x(t *testing.T) {
 	}
 }
 
-func TestArr2x(t *testing.T) {
+func TestArrDecodex(t *testing.T) {
 	cols := []nn.ColSpec{
 		{Bias: .5, Weight: []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}},
 		{Bias: .5, Weight: []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}},
@@ -291,6 +291,120 @@ func TestArr2x(t *testing.T) {
 		for i, f := range tt.in {
 			go n.Send(uint(i), f)
 		}
+		of := n.Recv()
+		x := floatx(of)
+		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
+
+		if x != i {
+			t.Errorf("%d: got %v, want %v", i, x, i)
+		}
+
+	}
+}
+
+func TestArrTwoColheight1(t *testing.T) {
+	cols := []nn.ColSpec{
+		{Bias: .5, Weight: []float64{0}},
+		//{Bias: .5, Weight: []float64{0, }},
+		//{Bias: .5, Weight: []float64{0, }},
+		//{Bias: .5, Weight: []float64{0, }},
+	}
+	n, err := nn.NewNet(cols, cols)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	nn.V = t.Logf
+	n.Run()
+
+	for i, tt := range []struct {
+		in [1]float64
+	}{
+		{in: [1]float64{.99}},
+	} {
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		t.Logf("Send %d things", len(tt.in))
+		for i, f := range tt.in {
+			go n.Send(uint(i), f)
+		}
+		t.Logf("Recv...")
+		of := n.Recv()
+		x := floatx(of)
+		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
+
+		if x != i {
+			t.Errorf("%d: got %v, want %v", i, x, i)
+		}
+
+	}
+}
+
+func TestArrTwoColHeight2(t *testing.T) {
+	cols := []nn.ColSpec{
+		{Bias: .5, Weight: []float64{0, 0}},
+		{Bias: .5, Weight: []float64{0, 0}},
+		//{Bias: .5, Weight: []float64{0, }},
+		//{Bias: .5, Weight: []float64{0, }},
+	}
+	n, err := nn.NewNet(cols, cols)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	nn.V = t.Logf
+	n.Run()
+
+	for i, tt := range []struct {
+		in [2]float64
+	}{
+		{in: [2]float64{.99}},
+	} {
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		t.Logf("Send %d things", len(tt.in))
+		for i, f := range tt.in {
+			go n.Send(uint(i), f)
+		}
+		t.Logf("Recv...")
+		of := n.Recv()
+		x := floatx(of)
+		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
+
+		if x != i {
+			t.Errorf("%d: got %v, want %v", i, x, i)
+		}
+
+	}
+}
+
+func TestArrTwoColHeight4(t *testing.T) {
+	cols := []nn.ColSpec{
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+	}
+	n, err := nn.NewNet(cols, cols)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	nn.V = t.Logf
+	n.Run()
+
+	for i, tt := range []struct {
+		in [4]float64
+	}{
+		{in: [4]float64{.99}},
+	} {
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		t.Logf("Send %d things", len(tt.in))
+		for i, f := range tt.in {
+			go n.Send(uint(i), f)
+		}
+		t.Logf("Recv...")
 		of := n.Recv()
 		x := floatx(of)
 		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
