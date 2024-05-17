@@ -136,17 +136,24 @@ func (n *Net) Run() {
 	}
 
 	for i := range n.Cols[:len(n.Cols)-1] {
+		V("Set up copiers for 0..%d", len(n.Cols)-1)
 		// each column has nets of the same size, for now, although the design
 		// allows it to vary, let's not go there yet. Until we need to.
 		// Each node has one and only one output (for now); fanout is handled
 		// by this goroutine.
 		// So foreach col[i].nn[j] goes to every one of col[i+1].nn[i]
 		go func() {
-			for i, x := range n.Cols[i].NN {
-				f := x.Recv(0)
-				for j, r := range n.Cols[i+1].NN {
-					r.Send(uint(j), f)
+			for {
+				var pass int
+				V("Loop for layer %d", i)
+				for i, x := range n.Cols[i].NN {
+					f := x.Recv(0)
+					V("Copy %v from layer %d to %d", f, i, i+1)
+					for j, r := range n.Cols[i+1].NN {
+						r.Send(uint(j), f)
+					}
 				}
+				V("Loop for layer %d pass %d", i, pass)
 			}
 		}()
 	}
