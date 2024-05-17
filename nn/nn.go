@@ -71,18 +71,23 @@ type Col struct {
 	NN []*N
 }
 
-func NewCol(bias float64, wt [][]float64) (*Col, error) {
-	col := &Col{NN: make([]*N, len(wt), len(wt))}
-	for i, w := range wt {
+type ColSpec struct {
+	Weight []float64
+	Bias   float64
+}
+
+func NewCol(colspec ...ColSpec) (*Col, error) {
+	col := &Col{NN: make([]*N, len(colspec), len(colspec))}
+	for i, c := range colspec {
 		var err error
-		if col.NN[i], err = New(1, bias, w); err != nil {
+		if col.NN[i], err = New(1, c.Bias, c.Weight); err != nil {
 			return nil, err
 		}
 	}
 	return col, nil
 }
 
-func (c*Col) Run() {
+func (c *Col) Run() {
 	for _, n := range c.NN {
 		n.Run()
 	}
@@ -103,5 +108,67 @@ func (c *Col) Send(i uint, f float64) {
 	for j := range c.NN {
 		V("Send %v to %d:%d", f, j, i)
 		go c.NN[j].Send(uint(i), f)
+	}
+}
+
+// Net is an array of Col
+type Net struct {
+	Cols []*Col
+}
+
+func NewNet(cols ...[]ColSpec) (*Net, error) {
+	n := &Net{Cols: make([]*Col, len(cols), len(cols))}
+	for i, col := range cols {
+		var err error
+		n.Cols[i], err = NewCol(col...)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return n, nil
+}
+
+func (n *Net) Run() {
+	// For each column after the first, set up the goroutines to copy one to the next.
+	// This can be pretty simple-minded, blocking, in-order movement.
+	for _, c := range n.Cols {
+		c.Run()
+	}
+
+	for i := range n.Cols[:len(n.Cols)-1] {
+		// each column has nets of the same size, for now, although the design
+		// allows it to vary, let's not go there yet. Until we need to.
+		// Each node has one and only one output (for now); fanout is handled
+		// by this goroutine.
+		// So foreach col[i].nn[j] goes to every one of col[i+1].nn[i]
+		go func() {
+			for i, x := range n.Cols[i].NN {
+				f := x.Recv(0)
+				for j, r := range n.Cols[i+1].NN {
+					r.Send(uint(j), f)
+				}
+			}
+		}()
+	}
+}
+
+func (n *Net) Recv() []float64 {
+	// We receive from the last column
+	last := n.Cols[len(n.Cols)-1]
+	// it's just our stuff, so don't be bad.
+	r := make([]float64, len(last.NN), len(last.NN))
+	for i := range r {
+		V("recv from %v", last.NN[i])
+		r[i] = last.NN[i].Recv(0)
+	}
+	return r
+}
+
+func (n *Net) Send(i uint, f float64) {
+	first := n.Cols[0]
+	V("Send %v to %d", f, i)
+	for j := range first.NN {
+		V("Send %v to %d:%d", f, j, i)
+		go first.NN[j].Send(uint(i), f)
 	}
 }
