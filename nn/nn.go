@@ -163,7 +163,7 @@ func (n *Net) Run() {
 				var pass int
 				V("net:Loop for layer %d", i)
 				f := r.Recv()
-				V("net:recv'd on col %d", i)
+				V("net:recv'd %v on col %d", f, i)
 				for j, v := range f {
 					V("net; send %v from layer %d to %d port %d", f, i, i+1, j)
 					x.Send(uint(j), v)

@@ -416,14 +416,14 @@ func TestArrTwoColHeight4(t *testing.T) {
 	}
 }
 
-func TestArrFourColHeight4(t *testing.T) {
+func TestArrThreeHt4(t *testing.T) {
 	cols := []nn.ColSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
-		//{Bias: .5, Weight: []float64{0, 0, 0, 0}},
-		//{Bias: .5, Weight: []float64{0, 0, 0, 0}},
-		//{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 	}
-	n, err := nn.NewNet(cols, cols, cols)//, cols)
+	n, err := nn.NewNet(cols, cols, cols)
 	if err != nil {
 		t.Fatalf("NewCol: got %v, want nil", err)
 	}
@@ -453,3 +453,43 @@ func TestArrFourColHeight4(t *testing.T) {
 
 	}
 }
+
+
+func TestArrFourHt4(t *testing.T) {
+	cols := []nn.ColSpec{
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+	}
+	n, err := nn.NewNet(cols, cols, cols, cols)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	nn.V = t.Logf
+	n.Run()
+
+	for i, tt := range []struct {
+		in [4]float64
+	}{
+		{in: [4]float64{.99}},
+	} {
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		t.Logf("Send %d things", len(tt.in))
+		for i, f := range tt.in {
+			go n.Send(uint(i), f)
+		}
+		t.Logf("Recv...")
+		of := n.Recv()
+		x := floatx(of)
+		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
+
+		if x != i {
+			t.Errorf("%d: got %v, want %v", i, x, i)
+		}
+
+	}
+}
+
