@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 )
 
 var V = func(string, ...any) {}
@@ -11,7 +12,7 @@ var V = func(string, ...any) {}
 // N implements io.WriterAt and io.ReaderAt.
 // The offset is the chan number.
 type N struct {
-	id string
+	id   string
 	in   []chan float64
 	wt   []float64
 	bias float64
@@ -23,21 +24,22 @@ func New(id string, out int, bias float64, wt []float64) (*N, error) {
 	for i := range chans {
 		chans[i] = make(chan float64)
 	}
-	return &N{id:id,in: chans[:len(wt)], wt: wt, bias: bias, out: chans[len(wt):]}, nil
+	return &N{id: id, in: chans[:len(wt)], wt: wt, bias: bias, out: chans[len(wt):]}, nil
 }
 
-func (n*N)String() string{
+func (n *N) String() string {
 	return fmt.Sprintf("N%s", n.id)
 }
+
 // Run runs an N
 func (n *N) Run() {
 	go func() {
 		for {
 			var x float64
 			for i := range n.in {
-				V("  %s:Run:recv %d:", n,i)
+				V("  %s:Run:recv %d:", n, i)
 				f := <-n.in[i]
-				V("  %s:Run:got %v", n,f)
+				V("  %s:Run:got %v", n, f)
 				x += f * n.wt[i]
 			}
 			z := (x - n.bias)
@@ -45,7 +47,7 @@ func (n *N) Run() {
 
 			V("%v + %v is %v", x, n.bias, y)
 			for i := range n.out {
-				V("  %s:Run:send %d %v", n,i, y)
+				V("  %s:Run:send %d %v", n, i, y)
 				n.out[i] <- y
 				V("  %s:Run:Sent", n)
 			}
@@ -77,7 +79,7 @@ type Col struct {
 	NN []*N
 }
 
-func (c*Col) String() string {
+func (c *Col) String() string {
 	return fmt.Sprintf("C%s", c.ID)
 }
 
@@ -136,6 +138,15 @@ func NewNet(cols ...[]ColSpec) (*Net, error) {
 			return nil, err
 		}
 	}
+	// Some simple checking.
+	for i, col := range n.Cols[:len(n.Cols)-1] {
+		for j, c := range n.Cols[i+1].NN {
+			if len(col.NN) != len(c.in) {
+				return nil, fmt.Errorf("Col %d: col[%d].NN[%d] only has %d inputs, need %d:%w", i, i+1, j, len(c.in), len(col.NN), os.ErrInvalid)
+			}
+		}
+
+	}
 	return n, nil
 }
 
@@ -150,7 +161,7 @@ func (n *Net) Run() {
 		if i == 0 {
 			continue
 		}
-		V("Set up copiers for %d..%d", i-1,i)
+		V("Set up copiers for %d..%d", i-1, i)
 		// each column has nets of the same size, for now, although the design
 		// allows it to vary, let's not go there yet. Until we need to.
 		// Each node has one and only one output (for now); fanout is handled
@@ -176,21 +187,11 @@ func (n *Net) Run() {
 
 func (n *Net) Recv() []float64 {
 	// We receive from the last column
-	last := n.Cols[len(n.Cols)-1]
-	// it's just our stuff, so don't be bad.
-	r := make([]float64, len(last.NN), len(last.NN))
-	for i := range r {
-		V("net:recv from %v", last.NN[i])
-		r[i] = last.NN[i].Recv(0)
-	}
-	return r
+	return n.Cols[len(n.Cols)-1].Recv()
 }
 
 func (n *Net) Send(i uint, f float64) {
 	first := n.Cols[0]
 	V("net:send %v to %d", f, i)
-	for j := range first.NN {
-		V("net:send %v to %d:%d", f, j, i)
-		go first.Send(uint(i), f)
-	}
+	first.Send(uint(i), f)
 }

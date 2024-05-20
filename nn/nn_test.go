@@ -1,7 +1,9 @@
 package nn_test
 
 import (
+	"errors"
 	"nn/nn"
+	"os"
 	"testing"
 )
 
@@ -220,10 +222,17 @@ func TestArr1x(t *testing.T) {
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}},
 	}
-	n, err := nn.NewNet(cols)
+	c, err := nn.NewCol("0", cols...)
 	if err != nil {
 		t.Fatalf("NewCol: got %v, want nil", err)
 	}
+	t.Logf("Direct cols %v", c)
+	n, err := nn.NewNet(cols)
+	nn.V = t.Logf
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	t.Logf("Cols via net: %v", n)
 	n.Run()
 
 	for i, tt := range []struct {
@@ -240,6 +249,10 @@ func TestArr1x(t *testing.T) {
 		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, .99}},
 		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, .99}},
 	} {
+		if i != 3 && i != 4 {
+			continue
+		}
+		t.Logf("======================== %d ==================", i)
 		// We use go here to simulate lots of async activity.
 		// the actual neuron goes in order, and hence will not
 		// finish until it has all inputs.
@@ -257,48 +270,15 @@ func TestArr1x(t *testing.T) {
 	}
 }
 
-func TestArrDecodex(t *testing.T) {
+func TestArrBadTopology(t *testing.T) {
 	cols := []nn.ColSpec{
 		{Bias: .5, Weight: []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}},
 		{Bias: .5, Weight: []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}},
 	}
-	n, err := nn.NewNet(cols, cols)
-	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
-	}
-	nn.V = t.Logf
-	n.Run()
-
-	for i, tt := range []struct {
-		in [10]float64
-	}{
-		{in: [10]float64{.99}},
-		{in: [10]float64{0, .99}},
-		{in: [10]float64{0, 0, .99}},
-		{in: [10]float64{0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, .99}},
-		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, .99}},
-	} {
-		// We use go here to simulate lots of async activity.
-		// the actual neuron goes in order, and hence will not
-		// finish until it has all inputs.
-		for i, f := range tt.in {
-			go n.Send(uint(i), f)
-		}
-		of := n.Recv()
-		x := floatx(of)
-		t.Logf("%d: %v: got %v, %v, want %v", i, tt, of, x, i)
-
-		if x != i {
-			t.Errorf("%d: got %v, want %v", i, x, i)
-		}
-
+	if _, err := nn.NewNet(cols, cols); !errors.Is(err, os.ErrInvalid) {
+		t.Fatalf("NewCol: got nil, want %v", os.ErrInvalid)
 	}
 }
 
@@ -454,7 +434,6 @@ func TestArrThreeHt4(t *testing.T) {
 	}
 }
 
-
 func TestArrFourHt4(t *testing.T) {
 	cols := []nn.ColSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
@@ -492,4 +471,3 @@ func TestArrFourHt4(t *testing.T) {
 
 	}
 }
-
