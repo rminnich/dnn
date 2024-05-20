@@ -249,9 +249,6 @@ func TestArr1x(t *testing.T) {
 		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, .99}},
 		{in: [10]float64{0, 0, 0, 0, 0, 0, 0, 0, 0, .99}},
 	} {
-		if i != 3 && i != 4 {
-			continue
-		}
 		t.Logf("======================== %d ==================", i)
 		// We use go here to simulate lots of async activity.
 		// the actual neuron goes in order, and hence will not
