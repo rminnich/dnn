@@ -468,3 +468,16 @@ func TestArrFourHt4(t *testing.T) {
 
 	}
 }
+func TestArrBack(t *testing.T) {
+	cols := []nn.ColSpec{
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
+	}
+	n, err := nn.NewNet(cols, cols, cols, cols)
+	if err != nil {
+		t.Fatalf("NewCol: got %v, want nil", err)
+	}
+	n.Rand()
+}

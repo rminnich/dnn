@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 )
 
@@ -29,6 +30,13 @@ func New(id string, out int, bias float64, wt []float64) (*N, error) {
 
 func (n *N) String() string {
 	return fmt.Sprintf("N%s", n.id)
+}
+
+func (n *N) Rand() {
+	for i := range n.wt {
+		n.wt[i] = rand.NormFloat64()
+	}
+	n.bias = rand.NormFloat64()
 }
 
 // Run runs an N
@@ -105,6 +113,12 @@ func (c *Col) Run() {
 	}
 }
 
+func (c *Col) Rand() {
+	for i := range c.NN {
+		c.NN[i].Rand()
+	}
+}
+
 func (c *Col) Recv() []float64 {
 	// it's just our stuff, so don't be bad.
 	r := make([]float64, len(c.NN), len(c.NN))
@@ -148,6 +162,12 @@ func NewNet(cols ...[]ColSpec) (*Net, error) {
 
 	}
 	return n, nil
+}
+
+func (n*Net) Rand() {
+	for  _, col := range n.Cols {
+		col.Rand()
+	}
 }
 
 func (n *Net) Run() {
