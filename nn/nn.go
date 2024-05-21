@@ -32,9 +32,16 @@ func (n *N) String() string {
 	return fmt.Sprintf("N%s", n.id)
 }
 
-func (n *N) Rand() {
+// Rand initializes an n. zeroBias determines
+// if the bias should be zero. This will happen
+// if we want to just add a bias layer,
+// which simplifies life a good deal.
+func (n *N) Rand(zeroBias bool) {
 	for i := range n.wt {
 		n.wt[i] = rand.NormFloat64()
+	}
+	if zeroBias {
+		return
 	}
 	n.bias = rand.NormFloat64()
 }
@@ -113,9 +120,9 @@ func (c *Col) Run() {
 	}
 }
 
-func (c *Col) Rand() {
+func (c *Col) Rand(zeroBias bool) {
 	for i := range c.NN {
-		c.NN[i].Rand()
+		c.NN[i].Rand(zeroBias )
 	}
 }
 
@@ -164,9 +171,9 @@ func NewNet(cols ...[]ColSpec) (*Net, error) {
 	return n, nil
 }
 
-func (n*Net) Rand() {
+func (n*Net) Rand(zeroBias bool) {
 	for  _, col := range n.Cols {
-		col.Rand()
+		col.Rand(zeroBias)
 	}
 }
 
@@ -214,4 +221,12 @@ func (n *Net) Send(i uint, f float64) {
 	first := n.Cols[0]
 	V("net:send %v to %d", f, i)
 	first.Send(uint(i), f)
+}
+
+// NewNetEmpty returns a new net with layers and weights
+// and connections ready to go.
+// It is assumed that it will be
+// randomized.
+func NewNetEmpty(layers ...uint) (*Net, error) {
+	return nil, nil
 }

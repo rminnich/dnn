@@ -479,5 +479,5 @@ func TestArrBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewCol: got %v, want nil", err)
 	}
-	n.Rand()
+	n.Rand(false)
 }
