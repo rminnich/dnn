@@ -54,13 +54,14 @@ func (n *N) Run() {
 			for i := range n.in {
 				V("  %s:Run:recv %d:", n, i)
 				f := <-n.in[i]
-				V("  %s:Run:got %v", n, f)
+				V("  %s:Run:got %v wt %v prod %v", n, f, n.wt[i], f*n.wt[i])
 				x += f * n.wt[i]
 			}
 			z := (x - n.bias)
+			V("  %s:dot is %v, z is %v", n, x, z)
 			y := 1 / (1 + math.Exp(-z))
 
-			V("%v + %v is %v", x, n.bias, y)
+			V("  %s:%v + %v is %v", n, x, n.bias, y)
 			for i := range n.out {
 				V("  %s:Run:send %d %v", n, i, y)
 				n.out[i] <- y
@@ -88,45 +89,45 @@ func (n *N) Send(i uint, f float64) {
 	n.in[i] <- f
 }
 
-// Col is a column of N
-type Col struct {
+// Layer is a layer of N
+type Layer struct {
 	ID string
 	NN []*N
 }
 
-func (c *Col) String() string {
+func (c *Layer) String() string {
 	return fmt.Sprintf("C%s", c.ID)
 }
 
-type ColSpec struct {
+type LayerSpec struct {
 	Weight []float64
 	Bias   float64
 }
 
-func NewCol(id string, colspec ...ColSpec) (*Col, error) {
-	col := &Col{ID: id, NN: make([]*N, len(colspec), len(colspec))}
-	for i, c := range colspec {
+func NewLayer(id string, layerspec ...LayerSpec) (*Layer, error) {
+	layer := &Layer{ID: id, NN: make([]*N, len(layerspec), len(layerspec))}
+	for i, c := range layerspec {
 		var err error
-		if col.NN[i], err = New(fmt.Sprintf("(%s,%d)", id, i), 1, c.Bias, c.Weight); err != nil {
+		if layer.NN[i], err = New(fmt.Sprintf("(%s,%d)", id, i), 1, c.Bias, c.Weight); err != nil {
 			return nil, err
 		}
 	}
-	return col, nil
+	return layer, nil
 }
 
-func (c *Col) Run() {
+func (c *Layer) Run() {
 	for _, n := range c.NN {
 		n.Run()
 	}
 }
 
-func (c *Col) Rand(zeroBias bool) {
+func (c *Layer) Rand(zeroBias bool) {
 	for i := range c.NN {
 		c.NN[i].Rand(zeroBias )
 	}
 }
 
-func (c *Col) Recv() []float64 {
+func (c *Layer) Recv() []float64 {
 	// it's just our stuff, so don't be bad.
 	r := make([]float64, len(c.NN), len(c.NN))
 	for i := range r {
@@ -137,7 +138,7 @@ func (c *Col) Recv() []float64 {
 	return r
 }
 
-func (c *Col) Send(i uint, f float64) {
+func (c *Layer) Send(i uint, f float64) {
 	V(" %s:send %v to %d", c, f, i)
 	for j := range c.NN {
 		V(" %s:send %v to %d:%d", c, f, j, i)
@@ -145,25 +146,25 @@ func (c *Col) Send(i uint, f float64) {
 	}
 }
 
-// Net is an array of Col
+// Net is an array of Layer
 type Net struct {
-	Cols []*Col
+	Layers []*Layer
 }
 
-func NewNet(cols ...[]ColSpec) (*Net, error) {
-	n := &Net{Cols: make([]*Col, len(cols), len(cols))}
-	for i, col := range cols {
+func NewNet(layers ...[]LayerSpec) (*Net, error) {
+	n := &Net{Layers: make([]*Layer, len(layers), len(layers))}
+	for i, layer := range layers {
 		var err error
-		n.Cols[i], err = NewCol(fmt.Sprintf("%d", i), col...)
+		n.Layers[i], err = NewLayer(fmt.Sprintf("%d", i), layer...)
 		if err != nil {
 			return nil, err
 		}
 	}
 	// Some simple checking.
-	for i, col := range n.Cols[:len(n.Cols)-1] {
-		for j, c := range n.Cols[i+1].NN {
-			if len(col.NN) != len(c.in) {
-				return nil, fmt.Errorf("Col %d: col[%d].NN[%d] only has %d inputs, need %d:%w", i, i+1, j, len(c.in), len(col.NN), os.ErrInvalid)
+	for i, layer := range n.Layers[:len(n.Layers)-1] {
+		for j, c := range n.Layers[i+1].NN {
+			if len(layer.NN) != len(c.in) {
+				return nil, fmt.Errorf("Layer %d: layer[%d].NN[%d] only has %d inputs, need %d:%w", i, i+1, j, len(c.in), len(layer.NN), os.ErrInvalid)
 			}
 		}
 
@@ -172,36 +173,36 @@ func NewNet(cols ...[]ColSpec) (*Net, error) {
 }
 
 func (n*Net) Rand(zeroBias bool) {
-	for  _, col := range n.Cols {
-		col.Rand(zeroBias)
+	for  _, layer := range n.Layers {
+		layer.Rand(zeroBias)
 	}
 }
 
 func (n *Net) Run() {
-	// For each column after the first, set up the goroutines to copy one to the next.
+	// For each layer after the first, set up the goroutines to copy one to the next.
 	// This can be pretty simple-minded, blocking, in-order movement.
-	for _, c := range n.Cols {
+	for _, c := range n.Layers {
 		c.Run()
 	}
 
-	for i := range n.Cols {
+	for i := range n.Layers {
 		if i == 0 {
 			continue
 		}
 		V("Set up copiers for %d..%d", i-1, i)
-		// each column has nets of the same size, for now, although the design
+		// each layer has nets of the same size, for now, although the design
 		// allows it to vary, let's not go there yet. Until we need to.
 		// Each node has one and only one output (for now); fanout is handled
 		// by this goroutine.
-		// So foreach col[i].nn[j] goes to every one of col[i+1].nn[i]
+		// So foreach layer[i].nn[j] goes to every one of layer[i+1].nn[i]
 		go func(i int) {
-			x := n.Cols[i]
-			r := n.Cols[i-1]
+			x := n.Layers[i]
+			r := n.Layers[i-1]
 			for {
 				var pass int
 				V("net:Loop for layer %d", i)
 				f := r.Recv()
-				V("net:recv'd %v on col %d", f, i)
+				V("net:recv'd %v on layer %d", f, i)
 				for j, v := range f {
 					V("net; send %v from layer %d to %d port %d", f, i, i+1, j)
 					x.Send(uint(j), v)
@@ -213,12 +214,12 @@ func (n *Net) Run() {
 }
 
 func (n *Net) Recv() []float64 {
-	// We receive from the last column
-	return n.Cols[len(n.Cols)-1].Recv()
+	// We receive from the last layer
+	return n.Layers[len(n.Layers)-1].Recv()
 }
 
 func (n *Net) Send(i uint, f float64) {
-	first := n.Cols[0]
+	first := n.Layers[0]
 	V("net:send %v to %d", f, i)
 	first.Send(uint(i), f)
 }

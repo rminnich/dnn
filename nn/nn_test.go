@@ -172,15 +172,15 @@ func floatx(f []float64) int {
 }
 
 func TestX(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}},
 		{Bias: .5, Weight: []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}},
 	}
-	c, err := nn.NewCol("0", cols...)
+	c, err := nn.NewLayer("0", layers...)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	c.Run()
 
@@ -216,23 +216,23 @@ func TestX(t *testing.T) {
 }
 
 func TestArr1x(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}},
 		{Bias: .5, Weight: []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}},
 	}
-	c, err := nn.NewCol("0", cols...)
+	c, err := nn.NewLayer("0", layers...)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
-	t.Logf("Direct cols %v", c)
-	n, err := nn.NewNet(cols)
+	t.Logf("Direct layers %v", c)
+	n, err := nn.NewNet(layers)
 	nn.V = t.Logf
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
-	t.Logf("Cols via net: %v", n)
+	t.Logf("Layers via net: %v", n)
 	n.Run()
 
 	for i, tt := range []struct {
@@ -268,27 +268,27 @@ func TestArr1x(t *testing.T) {
 }
 
 func TestArrBadTopology(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 1, 0, 1, 0, 1, 0, 1, 0, 1}},
 		{Bias: .5, Weight: []float64{0, 0, 1, 1, 0, 0, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 1, 1, 1, 1, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0, 0, 0, 0, 0, 1, 1}},
 	}
-	if _, err := nn.NewNet(cols, cols); !errors.Is(err, os.ErrInvalid) {
-		t.Fatalf("NewCol: got nil, want %v", os.ErrInvalid)
+	if _, err := nn.NewNet(layers, layers); !errors.Is(err, os.ErrInvalid) {
+		t.Fatalf("NewLayer: got nil, want %v", os.ErrInvalid)
 	}
 }
 
-func TestArrTwoColheight1(t *testing.T) {
-	cols := []nn.ColSpec{
+func TestArrTwoLayerheight1(t *testing.T) {
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0}},
 		//{Bias: .5, Weight: []float64{0, }},
 		//{Bias: .5, Weight: []float64{0, }},
 		//{Bias: .5, Weight: []float64{0, }},
 	}
-	n, err := nn.NewNet(cols, cols)
+	n, err := nn.NewNet(layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	nn.V = t.Logf
 	n.Run()
@@ -317,16 +317,16 @@ func TestArrTwoColheight1(t *testing.T) {
 	}
 }
 
-func TestArrTwoColHeight2(t *testing.T) {
-	cols := []nn.ColSpec{
+func TestArrTwoLayerHeight2(t *testing.T) {
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 0}},
 		{Bias: .5, Weight: []float64{0, 0}},
 		//{Bias: .5, Weight: []float64{0, }},
 		//{Bias: .5, Weight: []float64{0, }},
 	}
-	n, err := nn.NewNet(cols, cols)
+	n, err := nn.NewNet(layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	nn.V = t.Logf
 	n.Run()
@@ -355,16 +355,16 @@ func TestArrTwoColHeight2(t *testing.T) {
 	}
 }
 
-func TestArrTwoColHeight4(t *testing.T) {
-	cols := []nn.ColSpec{
+func TestArrTwoLayerHeight4(t *testing.T) {
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 	}
-	n, err := nn.NewNet(cols, cols)
+	n, err := nn.NewNet(layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	nn.V = t.Logf
 	n.Run()
@@ -394,15 +394,15 @@ func TestArrTwoColHeight4(t *testing.T) {
 }
 
 func TestArrThreeHt4(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 	}
-	n, err := nn.NewNet(cols, cols, cols)
+	n, err := nn.NewNet(layers, layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	nn.V = t.Logf
 	n.Run()
@@ -432,15 +432,15 @@ func TestArrThreeHt4(t *testing.T) {
 }
 
 func TestArrFourHt4(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 	}
-	n, err := nn.NewNet(cols, cols, cols, cols)
+	n, err := nn.NewNet(layers, layers, layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	nn.V = t.Logf
 	n.Run()
@@ -469,15 +469,72 @@ func TestArrFourHt4(t *testing.T) {
 	}
 }
 func TestArrBack(t *testing.T) {
-	cols := []nn.ColSpec{
+	layers := []nn.LayerSpec{
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 		{Bias: .5, Weight: []float64{0, 0, 0, 0}},
 	}
-	n, err := nn.NewNet(cols, cols, cols, cols)
+	n, err := nn.NewNet(layers, layers, layers, layers)
 	if err != nil {
-		t.Fatalf("NewCol: got %v, want nil", err)
+		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
 	n.Rand(false)
+}
+
+// 3-3-1 xor test
+func TestArrXOR(t *testing.T) {
+	left := []nn.LayerSpec{
+		{Bias: .0, Weight: []float64{.351, 1.076, 1.116,},},
+		{Bias: .0, Weight: []float64{-.097, -.165, .542},},
+		{Bias: .0, Weight: []float64{.457, -.165, -.331},},
+	}
+	mid := []nn.LayerSpec{
+		{Bias: .0, Weight: []float64{.383, 0, 0}},
+		{Bias: .0, Weight: []float64{0, -.327, 0}},
+		{Bias: .0, Weight: []float64{0, 0, -.329}},
+	}
+	last := []nn.LayerSpec{
+		{Bias: .0, Weight: []float64{.506, .506, .506}},
+	}
+	n, err := nn.NewNet(left, mid, last)
+	if err != nil {
+		t.Fatalf("NewLayer: got %v, want nil", err)
+	}
+	nn.V = t.Logf
+	n.Run()
+
+	for i, tt := range []struct {
+		in [3]float64
+		low bool
+	}{
+		{in: [3]float64{0,0,1}, low: true,},
+		{in: [3]float64{0,1,1}, low: false, },
+		{in: [3]float64{1,0,1}, low: false,},
+		{in: [3]float64{1,1,1}, low: true,},
+	} [1:2]{
+		// We use go here to simulate lots of async activity.
+		// the actual neuron goes in order, and hence will not
+		// finish until it has all inputs.
+		t.Logf("Send %d things", len(tt.in))
+		for i, f := range tt.in {
+			go n.Send(uint(i), f)
+		}
+		t.Logf("Recv...")
+		of := n.Recv()
+		t.Logf("%d: of %v", i, of)
+/*
+		v := of[0]
+
+		t.Logf("%d: got %v, want %v", i,  v, tt.low)
+		if v< .5 && tt.low {
+			continue
+		}
+		if v > .5 && ! tt.low {
+			continue
+		}
+		t.Errorf("%d: got %v, want low %v", i, of[0], tt.low)
+*/
+
+	}
 }
