@@ -489,19 +489,14 @@ func TestArrXOR(t *testing.T) {
 		{Bias: .0, Weight: []float64{-.097, -.165, .542},},
 		{Bias: .0, Weight: []float64{.457, -.165, -.331},},
 	}
-	mid := []nn.LayerSpec{
-		{Bias: .0, Weight: []float64{.383, 0, 0}},
-		{Bias: .0, Weight: []float64{0, -.327, 0}},
-		{Bias: .0, Weight: []float64{0, 0, -.329}},
+	hidden := []nn.LayerSpec{
+		{Bias: .0, Weight: []float64{.383, -.327, -.329},},
 	}
-	last := []nn.LayerSpec{
-		{Bias: .0, Weight: []float64{.506, .506, .506}},
-	}
-	n, err := nn.NewNet(left, mid, last)
+	n, err := nn.NewNet(left, hidden)
 	if err != nil {
 		t.Fatalf("NewLayer: got %v, want nil", err)
 	}
-	nn.V = t.Logf
+	//nn.V = t.Logf
 	n.Run()
 
 	for i, tt := range []struct {
@@ -512,7 +507,7 @@ func TestArrXOR(t *testing.T) {
 		{in: [3]float64{0,1,1}, low: false, },
 		{in: [3]float64{1,0,1}, low: false,},
 		{in: [3]float64{1,1,1}, low: true,},
-	} [1:2]{
+	} {
 		// We use go here to simulate lots of async activity.
 		// the actual neuron goes in order, and hence will not
 		// finish until it has all inputs.
@@ -523,7 +518,6 @@ func TestArrXOR(t *testing.T) {
 		t.Logf("Recv...")
 		of := n.Recv()
 		t.Logf("%d: of %v", i, of)
-/*
 		v := of[0]
 
 		t.Logf("%d: got %v, want %v", i,  v, tt.low)
@@ -534,7 +528,6 @@ func TestArrXOR(t *testing.T) {
 			continue
 		}
 		t.Errorf("%d: got %v, want low %v", i, of[0], tt.low)
-*/
 
 	}
 }
