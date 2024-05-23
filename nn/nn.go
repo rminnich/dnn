@@ -18,6 +18,7 @@ type N struct {
 	wt   []float64
 	bias float64
 	out  []chan float64
+	val float64
 }
 
 func New(id string, out int, bias float64, wt []float64) (*N, error) {
@@ -59,12 +60,12 @@ func (n *N) Run() {
 			}
 			z := (x - n.bias)
 			V("  %s:dot is %v, z is %v", n, x, z)
-			y := 1 / (1 + math.Exp(-z))
+			n.val = 1 / (1 + math.Exp(-z))
 
-			V("  %s:%v + %v is %v", n, x, n.bias, y)
+			V("  %s:%v + %v is %v", n, x, n.bias, n.val)
 			for i := range n.out {
-				V("  %s:Run:send %d %v", n, i, y)
-				n.out[i] <- y
+				V("  %s:Run:send %d %v", n, i, n.val)
+				n.out[i] <- n.val
 				V("  %s:Run:Sent", n)
 			}
 		}
@@ -93,6 +94,7 @@ func (n *N) Send(i uint, f float64) {
 type Layer struct {
 	ID string
 	NN []*N
+	val []float64
 }
 
 func (c *Layer) String() string {
@@ -105,7 +107,8 @@ type LayerSpec struct {
 }
 
 func NewLayer(id string, layerspec ...LayerSpec) (*Layer, error) {
-	layer := &Layer{ID: id, NN: make([]*N, len(layerspec), len(layerspec))}
+	n := len(layerspec)
+	layer := &Layer{ID: id, NN: make([]*N, n, n), val: make([]float64,n)}
 	for i, c := range layerspec {
 		var err error
 		if layer.NN[i], err = New(fmt.Sprintf("(%s,%d)", id, i), 1, c.Bias, c.Weight); err != nil {
@@ -128,14 +131,12 @@ func (c *Layer) Rand(zeroBias bool) {
 }
 
 func (c *Layer) Recv() []float64 {
-	// it's just our stuff, so don't be bad.
-	r := make([]float64, len(c.NN), len(c.NN))
-	for i := range r {
+	for i := range c.val {
 		V(" %s:call recv from %v", c, c.NN[i])
-		r[i] = c.NN[i].Recv(0)
-		V(" %s:got %v", c, r[i])
+		c.val[i] = c.NN[i].Recv(0)
+		V(" %s:got %v", c, c.val[i])
 	}
-	return r
+	return c.val
 }
 
 func (c *Layer) Send(i uint, f float64) {
@@ -149,6 +150,7 @@ func (c *Layer) Send(i uint, f float64) {
 // Net is an array of Layer
 type Net struct {
 	Layers []*Layer
+	val []float64
 }
 
 func NewNet(layers ...[]LayerSpec) (*Net, error) {
@@ -215,7 +217,8 @@ func (n *Net) Run() {
 
 func (n *Net) Recv() []float64 {
 	// We receive from the last layer
-	return n.Layers[len(n.Layers)-1].Recv()
+	n.val = n.Layers[len(n.Layers)-1].Recv()
+	return n.val
 }
 
 func (n *Net) Send(i uint, f float64) {
@@ -230,4 +233,7 @@ func (n *Net) Send(i uint, f float64) {
 // randomized.
 func NewNetEmpty(layers ...uint) (*Net, error) {
 	return nil, nil
+}
+
+func (n*Net) Back(l float64) {
 }
